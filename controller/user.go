@@ -2,16 +2,16 @@ package controller
 
 import (
 	"CRUD-Table-Backend/config"
+	"CRUD-Table-Backend/helper"
 	"CRUD-Table-Backend/model"
 	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 
-	"golang.org/x/crypto/bcrypt"
+	jwt "github.com/dgrijalva/jwt-go"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func Register(w http.ResponseWriter, r *http.Request) {
@@ -36,16 +36,14 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// checking if the username and email have already existed in the database
-	var result model.User
-	errUsername := collection.FindOne(context.TODO(), bson.D{primitive.E{Key: "username", Value: user.Username}}).Decode(&result)
+	errUsername := helper.CheckIfUsernameExistInDatabase(user.Username)
+	errEmail := helper.CheckIfEmailExistInDatabase(user.Email)
 
 	if errUsername == nil {
 		res.Error = "Username has been used. Please use different username"
 		json.NewEncoder(w).Encode(res)
 		return
 	}
-
-	errEmail := collection.FindOne(context.TODO(), bson.D{primitive.E{Key: "email", Value: user.Email}}).Decode(&result)
 
 	if errEmail == nil {
 		res.Error = "Email has been registered in the database"
@@ -99,11 +97,29 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get collections from database
-	collection := config.DB.Collection("User")
+	result, errLogin := helper.IsLoginInformationCorrect(user.Username, user.Password)
 
-	var result model.User
+	if errLogin != nil {
+		res.Error = errLogin.Error()
+		json.NewEncoder(w).Encode(res)
+		return
+	}
 
-	err = collection.FindOne(context.TODO(), bson.D{primitive.E{Key: "username", Value: user.Username}}).Decode(&result)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": result.Username,
+		"email":    result.Email,
+	})
 
+	tokenString, err := token.SignedString([]byte("secret"))
+
+	if err != nil {
+		res.Error = err.Error()
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	result.Token = tokenString
+	result.Password = ""
+
+	json.NewEncoder(w).Encode(result)
 }
