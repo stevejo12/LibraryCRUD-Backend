@@ -9,21 +9,23 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	jwt "github.com/dgrijalva/jwt-go"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
-func Register(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func Register(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
 	var user model.User
-	body, _ := ioutil.ReadAll(r.Body)
+	body, _ := ioutil.ReadAll(c.Request.Body)
 	err := json.Unmarshal(body, &user)
 
-	var res model.ResponseResult
+	res := model.ResponseResult{}
 	if err != nil {
 		res.Error = "Error while processing input data, Try again"
-		json.NewEncoder(w).Encode(res)
+		c.JSON(http.StatusBadRequest, res)
 		return
 	}
 
@@ -31,7 +33,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		res.Error = "Error while getting data from database, Try again"
-		json.NewEncoder(w).Encode(res)
+		c.JSON(http.StatusInternalServerError, res)
 		return
 	}
 
@@ -41,13 +43,13 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 	if errUsername == nil {
 		res.Error = "Username has been used. Please use different username"
-		json.NewEncoder(w).Encode(res)
+		c.JSON(http.StatusBadRequest, res)
 		return
 	}
 
 	if errEmail == nil {
 		res.Error = "Email has been registered in the database"
-		json.NewEncoder(w).Encode(res)
+		c.JSON(http.StatusBadRequest, res)
 		return
 	}
 
@@ -58,7 +60,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			res.Error = "Error While Hashing Password"
-			json.NewEncoder(w).Encode(res)
+			c.JSON(http.StatusInternalServerError, res)
 			return
 		}
 
@@ -68,32 +70,28 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			res.Error = "Error While Creating User"
-			json.NewEncoder(w).Encode(res)
+			c.JSON(http.StatusInternalServerError, res)
 			return
 		}
 
 		res.Result = "Registration Successful"
-		json.NewEncoder(w).Encode(res)
+		c.JSON(http.StatusOK, res)
 		return
 	}
-
-	res.Error = err.Error()
-	json.NewEncoder(w).Encode(res)
-	return
 }
 
-func Login(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func Login(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
 	var user model.User
 	var res model.ResponseResult
 
-	body, _ := ioutil.ReadAll(r.Body)
+	body, _ := ioutil.ReadAll(c.Request.Body)
 
 	err := json.Unmarshal(body, &user)
 
 	if err != nil {
 		res.Error = "Error while processing input data, Try again"
-		json.NewEncoder(w).Encode(res)
+		c.JSON(http.StatusBadRequest, res)
 		return
 	}
 
@@ -101,7 +99,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	if errLogin != nil {
 		res.Error = errLogin.Error()
-		json.NewEncoder(w).Encode(res)
+		c.JSON(http.StatusBadRequest, res)
 		return
 	}
 
@@ -114,12 +112,15 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		res.Error = err.Error()
-		json.NewEncoder(w).Encode(res)
+		c.JSON(http.StatusInternalServerError, res)
 		return
 	}
 
 	result.Token = tokenString
 	result.Password = ""
 
-	json.NewEncoder(w).Encode(result)
+	res.Error = ""
+	res.Result = result
+
+	c.JSON(http.StatusOK, res)
 }

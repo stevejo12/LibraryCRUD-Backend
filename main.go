@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 // initialize server before starting one.
@@ -17,10 +17,15 @@ func init() {
 
 // Main function
 func main() {
-	r := mux.NewRouter()
+	// r := mux.NewRouter()
 
-	r.HandleFunc("/register", controller.Register).Methods("POST")
-	r.HandleFunc("/login", controller.Login).Methods("POST")
+	// r.HandleFunc("/register", controller.Register).Methods("POST")
+	// r.HandleFunc("/login", controller.Login).Methods("POST")
+
+	r := gin.Default()
+
+	r.POST("/register", controller.Register)
+	r.POST("/login", controller.Login)
 
 	// disconnect after the program closes.
 	defer config.Client.Disconnect(context.TODO())
